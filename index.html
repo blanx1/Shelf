@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site Shelf</title>
+<meta name="description" content="A list of my mini websites.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=DM+Mono&display=swap">
+<style>
+/* Layout: one index column; groups are shelves with a label in the left margin, collapsing above the rows on phones. */
+:root {
+  --bg: #eef1f6; --surface: #ffffff; --fg: #18233a; --muted: #56627a;
+  --line: #cfd6e3; --accent: #1f49c7;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "DM Mono", Consolas, monospace;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #111725; --surface: #1a2234; --fg: #e8ecf5; --muted: #9ba7bf;
+  --line: #2f3a52; --accent: #8ba8ff;
+} }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 var(--body); }
+.wrap { max-width: 900px; margin: 0 auto; padding: 48px 16px 72px; display: grid; gap: 32px; }
+h1 { font: 700 clamp(2.4rem, 7vw, 3.75rem)/1 var(--display); letter-spacing: -0.02em; margin: 0; }
+#count { font: 0.85rem var(--mono); color: var(--muted); margin: 8px 0 0; font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#search { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%; }
+#list { display: grid; gap: 32px; }
+.shelf { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; border-top: 2px solid var(--fg); padding-top: 12px; }
+.shelf h2 { margin: 0; font: 400 0.8rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); overflow-wrap: anywhere; }
+.rows { display: grid; list-style: none; margin: 0; padding: 0; }
+.row { padding: 0 0 16px; min-width: 0; }
+.row + .row { border-top: 1px solid var(--line); padding-top: 14px; }
+.name { font: 500 1.4rem/1.25 var(--display); margin: 0; overflow-wrap: anywhere; }
+.name a { color: var(--accent); text-decoration: none; }
+.name a:hover { text-decoration: underline; }
+.desc { margin: 2px 0 0; color: var(--muted); max-width: 65ch; overflow-wrap: anywhere; }
+.host { font: 0.8rem var(--mono); color: var(--muted); margin: 4px 0 0; overflow-wrap: anywhere; }
+#status, .empty { color: var(--muted); margin: 0; }
+@media (max-width: 640px) {
+  .wrap { padding-block: 28px 48px; }
+  .shelf { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Site Shelf</h1>
+    <p id="count"></p>
+  </header>
+  <input id="search" type="search" placeholder="Search sites" aria-label="Search sites">
+  <p id="status" role="status">Loading sites…</p>
+  <main id="list"></main>
+  <noscript><p>This list needs JavaScript to display.</p></noscript>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let sites = [];
+
+const el = (tag, props = {}, ...kids) => {
+  const n = Object.assign(document.createElement(tag), props);
+  n.append(...kids);
+  return n;
+};
+
+// Only real web addresses become links.
+function safeUrl(raw) {
+  try {
+    const u = new URL(String(raw || "").trim());
+    return u.protocol === "https:" || u.protocol === "http:" ? u : null;
+  } catch { return null; }
+}
+
+function renderRow(s) {
+  const url = safeUrl(s.url);
+  const title = url
+    ? el("a", { href: url.href, target: "_blank", rel: "noopener", textContent: s.name || "Untitled" })
+    : document.createTextNode(s.name || "Untitled");
+  const row = el("li", { className: "row" }, el("h3", { className: "name" }, title));
+  if (s.description) row.append(el("p", { className: "desc", textContent: s.description }));
+  row.append(el("p", { className: "host", textContent: url ? url.hostname : "Not online yet" }));
+  return row;
+}
+
+function render() {
+  const q = $("search").value.trim().toLowerCase();
+  const shown = sites.filter(s => [s.name, s.description, s.category, s.url].join(" ").toLowerCase().includes(q));
+  const online = sites.filter(s => safeUrl(s.url)).length;
+  $("count").textContent = `${sites.length} ${sites.length === 1 ? "site" : "sites"} · ${online} online`;
+
+  const groups = new Map();
+  for (const s of shown) {
+    const c = String(s.category || "Other");
+    if (!groups.has(c)) groups.set(c, []);
+    groups.get(c).push(s);
+  }
+  const list = $("list");
+  list.replaceChildren();
+  for (const c of [...groups.keys()].sort((a, b) => a.localeCompare(b))) {
+    const rows = el("ul", { className: "rows" });
+    groups.get(c).sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true }));
+    for (const s of groups.get(c)) rows.append(renderRow(s));
+    list.append(el("section", { className: "shelf" }, el("h2", { textContent: c }), rows));
+  }
+  if (!shown.length) {
+    list.append(el("p", { className: "empty", textContent: sites.length ? "No sites match that search." : "No sites have been added yet." }));
+  }
+}
+
+$("search").addEventListener("input", render);
+
+// no-cache so a sites.json edit shows up as soon as GitHub Pages has published it.
+fetch("sites.json", { cache: "no-cache" })
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data => {
+    if (!Array.isArray(data)) throw new Error("not a list");
+    sites = data;
+    $("status").hidden = true;
+    render();
+  })
+  .catch(() => {
+    $("status").textContent = "Couldn't load the list of sites. If sites.json was just edited, check it for a missing or extra comma.";
+  });
+</script>
+</body>
+</html>
