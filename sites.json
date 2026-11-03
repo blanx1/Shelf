@@ -10,5 +10,11 @@
     "url": "https://blanx1.github.io/804/",
     "category": "Course practice",
     "description": "Practice site for 8.04 exams."
+  },
+  {
+    "name": "18.435 Study",
+    "url": "https://blanx1.github.io/18435/",
+    "category": "Course practice",
+    "description": "Lessons and practice problems for 18.435 Quantum Computation."
   }
 ]
